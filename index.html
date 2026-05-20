@@ -24,8 +24,8 @@
 let activeVisuals = {}; 
 
 // Updated to match your exact Glitch name from your Arduino sketch
-const GLITCH_PROJECT_NAME = "pressure-sleeve"; 
-const socket = new WebSocket(`wss://${GLITCH_PROJECT_NAME}.glitch.me`);
+const GLITCH_PROJECT_NAME = "pressure-sleeve-server"; 
+const socket = new WebSocket(`wss://://${GLITCH_PROJECT_NAME}.onrender.com`);
 
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
