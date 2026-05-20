@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Multi-Touch Interaction Design WebAR</title>
+    <!-- Load critical A-Frame 3D engine and MindAR tracking frameworks -->
+    <script src="https://aframe.io"></script>
+    <script src="https://jsdelivr.net"></script>
+  </head>
+  <body>
+    <!-- 1. The Core AR Scene Container -->
+    <a-scene mindar-image="imageTargetSrc: ./poster-target.mind;" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      
+      
+        <!-- 3D visual markers will be spawned inside here automatically by JavaScript -->
+      
+    </a-scene>
+
+    <!-- 3. Dynamic Wireless Multi-Touch Handler -->
+    <script>
+      const anchorNode = document.querySelector('#arAnchor');
+      // Store all active visual nodes currently rendered on the screen
+      let activeVisuals = {}; 
+
+      // !!! CHANGE THIS to match your specific Glitch project name !!!
+      const GLITCH_PROJECT_NAME = "your-project-name"; 
+      const socket = new WebSocket(`wss://${GLITCH_PROJECT_NAME}.glitch.me`);
+
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        // Ensure the data packet contains our multi-touch array
+        if (!data.touches) return;
+
+        // Keep track of which nodes are touched in this specific incoming packet frame
+        let activeKeysInCurrentFrame = new Set();
+
+        // Loop through every single touch coordinate sent from the Arduino over Wi-Fi
+        data.touches.forEach((touch) => {
+          // Generate a unique identifier string for this matrix grid intersection (e.g., "r2c5")
+          const touchID = `r${touch.r}c${touch.c}`;
+          activeKeysInCurrentFrame.add(touchID);
+
+          // Calculate spatial placement mapping the 5x9 matrix grid onto a 3D canvas
+          let targetX = (touch.c - 4) * 0.06; // Columns 0-8 scale across the X-axis
+          let targetY = (touch.r - 2) * 0.06; // Rows 0-4 scale across the Y-axis
+          
+          // Map individual touch pressure (30-127) linearly to the height of the 3D block
+          let targetHeight = (touch.p / 127.0) * 0.4; 
+
+          // If this coordinate wasn't being pressed before, spawn a brand new 3D box for it
+          if (!activeVisuals[touchID]) {
+            const newBox = document.createElement('a-box');
+            newBox.setAttribute('id', touchID);
+            newBox.setAttribute('width', '0.04');
+            newBox.setAttribute('depth', '0.04');
+            newBox.setAttribute('color', '#FF2D55'); // Hot pink for active touch input
+            
+            // Append the new 3D box directly inside the tracking poster anchor
+            anchorNode.appendChild(newBox);
+            activeVisuals[touchID] = newBox;
+          }
+
+          // Dynamically update the position and height scale based on pressure intensity
+          activeVisuals[touchID].setAttribute('height', targetHeight);
+          // Position adjustments offset Z slightly so the box sticks outward toward the viewer
+          activeVisuals[touchID].setAttribute('position', `${targetX} ${targetY} ${targetHeight / 2}`);
+        });
+
+        // Garbage Collection: Remove any 3D shapes if fingers have left that specific sensor node
+        Object.keys(activeVisuals).forEach((key) => {
+          if (!activeKeysInCurrentFrame.has(key)) {
+            // Remove the 3D asset from the screen scene physically
+            activeVisuals[key].parentNode.removeChild(activeVisuals[key]);
+            // Purge the reference out of our memory cache tracking array
+            delete activeVisuals[key];
+          }
+        });
+      };
+
+      socket.onerror = (error) => console.log('WebSocket Wireless Drop Error:', error);
+    </script>
+  </body>
+</html>
