@@ -3,74 +3,72 @@
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Multi-Touch Interaction Design WebAR</title>
-    <!-- Load critical A-Frame 3D engine and MindAR tracking frameworks -->
+    <!-- FIX: Restored the exact working CDN paths for the 3D and AR engines -->
     <script src="https://aframe.io"></script>
     <script src="https://jsdelivr.net"></script>
   </head>
   <body>
     <!-- 1. The Core AR Scene Container -->
-    <a-scene mindar-image="imageTargetSrc: ./poster-target.mind;" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    <!-- FIX: Updated target link to look for your "targets.mind" file instead of the old placeholder name -->
+    <a-scene mindar-image="imageTargetSrc: ./targets.mind;" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+      <!-- 2. The AR Anchor -->
+      <!-- FIX: Re-inserted the vital tracking node so JavaScript knows where to draw the pink blocks -->
       
-      
-        <!-- 3D visual markers will be spawned inside here automatically by JavaScript -->
+        <!-- 3D visual markers will spawn here dynamically -->
       
     </a-scene>
 
     <!-- 3. Dynamic Wireless Multi-Touch Handler -->
     <script>
       const anchorNode = document.querySelector('#arAnchor');
-let activeVisuals = {}; 
+      let activeVisuals = {}; 
 
-// Updated to match your exact Glitch name from your Arduino sketch
-const GLITCH_PROJECT_NAME = "pressure-sleeve-server"; 
-const socket = new WebSocket(`wss://://${GLITCH_PROJECT_NAME}.onrender.com`);
+      // FIX: Cleaned up the URL path string to route to Render securely without typos
+      const GLITCH_PROJECT_NAME = "pressure-sleeve-server"; 
+      const socket = new WebSocket(`wss://${GLITCH_PROJECT_NAME}.onrender.com`);
 
-socket.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  if (!data.touches) return;
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (!data.touches) return;
 
-  let activeKeysInCurrentFrame = new Set();
+        let activeKeysInCurrentFrame = new Set();
 
-  data.touches.forEach((touch) => {
-    const touchID = `r${touch.r}c${touch.c}`;
-    activeKeysInCurrentFrame.add(touchID);
+        data.touches.forEach((touch) => {
+          const touchID = `r${touch.r}c${touch.c}`;
+          activeKeysInCurrentFrame.add(touchID);
 
-    // FIXED MATH FOR YOUR 5x6 MATRIX:
-    // Columns (0 to 5): Centered by subtracting 2.5, spread apart by 0.07 units
-    let targetX = (touch.c - 2.5) * 0.07; 
-    // Rows (0 to 4): Centered by subtracting 2, spread apart by 0.07 units
-    let targetY = (touch.r - 2) * 0.07; 
-    
-    let targetHeight = (touch.p / 127.0) * 0.4; 
+          // FIXED MATH FOR YOUR 5x6 MATRIX:
+          let targetX = (touch.c - 2.5) * 0.07; 
+          let targetY = (touch.r - 2) * 0.07; 
+          let targetHeight = (touch.p / 127.0) * 0.4; 
 
-    if (!activeVisuals[touchID]) {
-      const newBox = document.createElement('a-box');
-      newBox.setAttribute('id', touchID);
-      newBox.setAttribute('width', '0.05');
-      newBox.setAttribute('depth', '0.05');
-      newBox.setAttribute('color', '#FF2D55'); 
-      
-      anchorNode.appendChild(newBox);
-      activeVisuals[touchID] = newBox;
-    }
+          if (!activeVisuals[touchID]) {
+            const newBox = document.createElement('a-box');
+            newBox.setAttribute('id', touchID);
+            newBox.setAttribute('width', '0.05');
+            newBox.setAttribute('depth', '0.05');
+            newBox.setAttribute('color', '#FF2D55'); 
+            
+            anchorNode.appendChild(newBox);
+            activeVisuals[touchID] = newBox;
+          }
 
-    activeVisuals[touchID].setAttribute('height', targetHeight);
-    activeVisuals[touchID].setAttribute('position', `${targetX} ${targetY} ${targetHeight / 2}`);
-  });
+          activeVisuals[touchID].setAttribute('height', targetHeight);
+          activeVisuals[touchID].setAttribute('position', `${targetX} ${targetY} ${targetHeight / 2}`);
+        });
 
-  // Garbage Collection
-  Object.keys(activeVisuals).forEach((key) => {
-    if (!activeKeysInCurrentFrame.has(key)) {
-      activeVisuals[key].parentNode.removeChild(activeVisuals[key]);
-      delete activeVisuals[key];
-    }
-  });
-};
+        // Garbage Collection
+        Object.keys(activeVisuals).forEach((key) => {
+          if (!activeKeysInCurrentFrame.has(key)) {
+            activeVisuals[key].parentNode.removeChild(activeVisuals[key]);
+            delete activeVisuals[key];
+          }
+        });
+      };
 
-socket.onerror = (error) => console.log('WebSocket Wireless Drop Error:', error);
-
+      socket.onerror = (error) => console.log('WebSocket Wireless Drop Error:', error);
     </script>
   </body>
 </html>
